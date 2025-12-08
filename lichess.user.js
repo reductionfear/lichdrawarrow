@@ -60,27 +60,27 @@ function run(){
         //Returns xy coord for arrow
         function getArrowCoords(square,color){
             //square is like "a1"
-            // Lichess uses viewBox="0 0 8 8" coordinate system
-            // Files: a=0.5, b=1.5, c=2.5, d=3.5, e=4.5, f=5.5, g=6.5, h=7.5
-            // Ranks (for white): 1=7.5, 2=6.5, 3=5.5, 4=4.5, 5=3.5, 6=2.5, 7=1.5, 8=0.5
+            // Lichess uses viewBox="-4 -4 8 8" coordinate system
+            // Files: a=-3.5, b=-2.5, c=-1.5, d=-0.5, e=0.5, f=1.5, g=2.5, h=3.5
+            // Ranks (for white): 1=3.5, 2=2.5, 3=1.5, 4=0.5, 5=-0.5, 6=-1.5, 7=-2.5, 8=-3.5
             let bottom = square.substring(0,1).toLowerCase();
-            let x = bottom == "a" ? 0.5 :
-            (bottom == "b" ? 1.5 :
-             (bottom == "c" ? 2.5 :
-              (bottom == "d" ? 3.5 :
-               (bottom == "e" ? 4.5 :
-                (bottom == "f" ? 5.5 :
-                 (bottom == "g" ? 6.5 : 7.5))))));
+            let x = bottom == "a" ? -3.5 :
+            (bottom == "b" ? -2.5 :
+             (bottom == "c" ? -1.5 :
+              (bottom == "d" ? -0.5 :
+               (bottom == "e" ? 0.5 :
+                (bottom == "f" ? 1.5 :
+                 (bottom == "g" ? 2.5 : 3.5))))));
             let right = square.substring(1,2);
-            let y = right == "1" ? 7.5 :
-            (right == "2" ? 6.5 :
-             (right == "3" ? 5.5 :
-              (right == "4" ? 4.5 :
-               (right == "5" ? 3.5 :
-                (right == "6" ? 2.5 :
-                 (right == "7" ? 1.5 : 0.5))))));
+            let y = right == "1" ? 3.5 :
+            (right == "2" ? 2.5 :
+             (right == "3" ? 1.5 :
+              (right == "4" ? 0.5 :
+               (right == "5" ? -0.5 :
+                (right == "6" ? -1.5 :
+                 (right == "7" ? -2.5 : -3.5))))));
             //if you're black, invert them
-            if (color == "black"){x = 7 - x; y = 7 - y;}
+            if (color == "black"){x = -x; y = -y;}
             return [x,y];
         }
 
@@ -98,7 +98,7 @@ function run(){
         stockfish.onmessage = function(event) {
             if(event.data.substring(0,8) == "bestmove"){
                 let bestMove = event.data.split(" ")[1];
-                $('g')[0].innerHTML = '';
+                $('svg.cg-shapes g')[0].innerHTML = '';
                 let arrowCoords1;
                 let arrowCoords2;
                 if($('.cg-wrap')[0].classList[1] == 'orientation-white' || $('.cg-wrap')[0].classList[2] == 'orientation-white'){
@@ -108,10 +108,10 @@ function run(){
                     arrowCoords1 = getArrowCoords(bestMove.substring(0,2),'black');
                     arrowCoords2 = getArrowCoords(bestMove.substring(2),'black');
                 }
-                $('g')[0].innerHTML += '<line stroke="#15781B" stroke-width="0.2" stroke-linecap="round" marker-end="url(#arrowhead-g)" opacity="1" x1="'+arrowCoords1[0]+'" y1="'+arrowCoords1[1]+'" x2="'+arrowCoords2[0]+'" y2="'+arrowCoords2[1]+'"></line>';
-                $('g')[0].innerHTML += '<circle stroke="#15781B" stroke-width="0.07" fill="lime" opacity="0.8" cx="'+arrowCoords1[0]+'" cy="'+arrowCoords1[1]+'" r="0.4" ></circle>';
-                $('g')[0].innerHTML += '<circle stroke="#15781B" stroke-width="0.07" fill="red" opacity="0.5" cx="'+arrowCoords2[0]+'" cy="'+arrowCoords2[1]+'" r="0.4" ></circle>';
-                $('defs')[0].innerHTML += '<marker id="arrowhead-g" orient="auto" markerWidth="4" markerHeight="8" refX="2.05" refY="2" cgKey="g"><path d="M0,0 V4 L3,2 Z" fill="#15781B"></path></marker>';
+                $('svg.cg-shapes g')[0].innerHTML += '<line stroke="#15781B" stroke-width="0.2" stroke-linecap="round" marker-end="url(#arrowhead-g)" opacity="1" x1="'+arrowCoords1[0]+'" y1="'+arrowCoords1[1]+'" x2="'+arrowCoords2[0]+'" y2="'+arrowCoords2[1]+'"></line>';
+                $('svg.cg-shapes g')[0].innerHTML += '<circle stroke="#15781B" stroke-width="0.07" fill="lime" opacity="0.8" cx="'+arrowCoords1[0]+'" cy="'+arrowCoords1[1]+'" r="0.4" ></circle>';
+                $('svg.cg-shapes g')[0].innerHTML += '<circle stroke="#15781B" stroke-width="0.07" fill="red" opacity="0.5" cx="'+arrowCoords2[0]+'" cy="'+arrowCoords2[1]+'" r="0.4" ></circle>';
+                $('svg.cg-shapes defs')[0].innerHTML += '<marker id="arrowhead-g" orient="auto" markerWidth="4" markerHeight="8" refX="2.05" refY="2" cgKey="g"><path d="M0,0 V4 L3,2 Z" fill="#15781B"></path></marker>';
                 if($('div.vote')[0]){
                     $('div.vote')[0].click();
                 }
@@ -136,7 +136,7 @@ function run(){
         let observer = new MutationObserver(function(mutationsList) {
             for (let mutation of mutationsList) {
                 if (mutation.type === "childList" && mutation.addedNodes.length>0) {
-                    $('g')[0].innerHTML = '';
+                    $('svg.cg-shapes g')[0].innerHTML = '';
                     if(mutation.addedNodes[0].innerText.includes('Continue training')){
                         $('div.vote')[0].click();
                     } else if (mutation.addedNodes[0].innerText.includes('Keep going…')){
