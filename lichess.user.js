@@ -26,6 +26,32 @@ window.game = new Chess();
 var autoRun = localStorage.getItem('autorun') ?? "0";
 console.log(autoRun);
 
+// Helper function to wait for an element to exist using MutationObserver
+function waitForElement(selector) {
+    return new Promise(resolve => {
+        // Check if element already exists
+        const element = document.querySelector(selector);
+        if (element) {
+            resolve(element);
+            return;
+        }
+
+        // Otherwise, wait for it to appear
+        const observer = new MutationObserver((mutations, obs) => {
+            const element = document.querySelector(selector);
+            if (element) {
+                obs.disconnect();
+                resolve(element);
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    });
+}
+
 function run(){
 
     //For puzzles
@@ -34,24 +60,27 @@ function run(){
         //Returns xy coord for arrow
         function getArrowCoords(square,color){
             //square is like "a1"
+            // Lichess uses viewBox="0 0 8 8" coordinate system
+            // Files: a=0.5, b=1.5, c=2.5, d=3.5, e=4.5, f=5.5, g=6.5, h=7.5
+            // Ranks (for white): 1=7.5, 2=6.5, 3=5.5, 4=4.5, 5=3.5, 6=2.5, 7=1.5, 8=0.5
             let bottom = square.substring(0,1).toLowerCase();
-            let x = bottom == "a" ? -3.5 :
-            (bottom == "b" ? -2.5 :
-             (bottom == "c" ? -1.5 :
-              (bottom == "d" ? -0.5 :
-               (bottom == "e" ? 0.5 :
-                (bottom == "f" ? 1.5 :
-                 (bottom == "g" ? 2.5 : 3.5))))));
+            let x = bottom == "a" ? 0.5 :
+            (bottom == "b" ? 1.5 :
+             (bottom == "c" ? 2.5 :
+              (bottom == "d" ? 3.5 :
+               (bottom == "e" ? 4.5 :
+                (bottom == "f" ? 5.5 :
+                 (bottom == "g" ? 6.5 : 7.5))))));
             let right = square.substring(1,2);
-            let y = right == "1" ? 3.5 :
-            (right == "2" ? 2.5 :
-             (right == "3" ? 1.5 :
-              (right == "4" ? 0.5 :
-               (right == "5" ? -0.5 :
-                (right == "6" ? -1.5 :
-                 (right == "7" ? -2.5 : -3.5))))));
+            let y = right == "1" ? 7.5 :
+            (right == "2" ? 6.5 :
+             (right == "3" ? 5.5 :
+              (right == "4" ? 4.5 :
+               (right == "5" ? 3.5 :
+                (right == "6" ? 2.5 :
+                 (right == "7" ? 1.5 : 0.5))))));
             //if you're black, invert them
-            if (color == "black"){x = -x;y = -y;}
+            if (color == "black"){x = 7 - x; y = 7 - y;}
             return [x,y];
         }
 
@@ -251,5 +280,17 @@ function run(){
     }
 
 }
-setTimeout(run,500);
+
+// Use waitForElement to ensure page is loaded before running
+if (window.location.href.startsWith('https://lichess.org/training')) {
+    // For puzzle pages, wait for puzzle metadata element
+    waitForElement('div.puzzle__side__metas').then(() => {
+        run();
+    });
+} else {
+    // For game pages, wait for the moves element
+    waitForElement('rm6').then(() => {
+        run();
+    });
+}
 
