@@ -17,6 +17,30 @@
 //Don't run in lobby
 if (window.location.href == 'https://lichess.org/'){return}
 
+// WebSocket interception to capture the connection
+let webSocketWrapper = null;
+let currentAck = 0;
+const webSocketProxy = new Proxy(window.WebSocket, {
+    construct: function (target, args) {
+        let wrappedWebSocket = new target(...args);
+        webSocketWrapper = wrappedWebSocket;
+        
+        wrappedWebSocket.addEventListener("message", function (event) {
+            try {
+                let message = JSON.parse(event.data);
+                // Track currentAck from move messages
+                if (message.t === 'move' && message.d && typeof message.d.ply !== 'undefined') {
+                    currentAck = message.d.ply;
+                }
+            } catch (e) {
+                // Ignore non-JSON messages
+            }
+        });
+        return wrappedWebSocket;
+    }
+});
+window.WebSocket = webSocketProxy;
+
 window.lichess = window.site;
 
 //Stockfish engine and FEN generator
@@ -155,6 +179,16 @@ function run(){
     //You can load an opening book with this (may not be working)
     //stockfish.postMessage('setoption name BookFile value https://raw.githubusercontent.com/mchappychen/lichess-funnies/main/Human.bin');
 
+    //Returns xy coord for arrow (for game page)
+    function getArrowCoords(square, color) {
+        let file = square.substring(0,1).toLowerCase();
+        let x = {a:-3.5, b:-2.5, c:-1.5, d:-0.5, e:0.5, f:1.5, g:2.5, h:3.5}[file];
+        let rank = square.substring(1,2);
+        let y = {1:3.5, 2:2.5, 3:1.5, 4:0.5, 5:-0.5, 6:-1.5, 7:-2.5, 8:-3.5}[rank];
+        if (color == "black") { x = -x; y = -y; }
+        return [x, y];
+    }
+
     //sends message to chat
     function send(x) {
         try{
@@ -218,11 +252,39 @@ function run(){
     stockfish.onmessage = function(event) {
         if(event.data.substring(0,8) == "bestmove"){
             let bestMove = event.data.split(" ")[1];
-            console.log('bestmove',bestMove)
-            lichess.socket.averageLag = 1200; // trick lichess to give us more time thinking we're lagging
-            lichess.socket.send('move', { u: bestMove }, { ackable: true, sign:lichess.socket._sign, withLag:true }); //sign:lichess.socket._sign tricks lichess so our socket won't get destroyed? Or is it cause we're shadowbanned?
-            //Note - according to lichess.socket code:
-            //we may need to delete socket.rep.${Math.round(Date.now() / 3600 / 3)} from localStorage each time we call lichess.socket.send() to avoid disconnects
+            console.log('bestmove', bestMove);
+            
+            // Draw arrow showing the best move
+            let color = $('.cg-wrap')[0].classList.contains('orientation-white') ? 'white' : 'black';
+            let arrowCoords1 = getArrowCoords(bestMove.substring(0,2), color);
+            let arrowCoords2 = getArrowCoords(bestMove.substring(2,4), color);
+            
+            $('svg.cg-shapes g')[0].innerHTML = '';
+            $('svg.cg-shapes g')[0].innerHTML += '<line stroke="#15781B" stroke-width="0.2" stroke-linecap="round" marker-end="url(#arrowhead-g)" opacity="1" x1="'+arrowCoords1[0]+'" y1="'+arrowCoords1[1]+'" x2="'+arrowCoords2[0]+'" y2="'+arrowCoords2[1]+'"></line>';
+            $('svg.cg-shapes g')[0].innerHTML += '<circle stroke="#15781B" stroke-width="0.07" fill="lime" opacity="0.8" cx="'+arrowCoords1[0]+'" cy="'+arrowCoords1[1]+'" r="0.4"></circle>';
+            $('svg.cg-shapes g')[0].innerHTML += '<circle stroke="#15781B" stroke-width="0.07" fill="red" opacity="0.5" cx="'+arrowCoords2[0]+'" cy="'+arrowCoords2[1]+'" r="0.4"></circle>';
+            
+            // Ensure arrowhead marker exists
+            if (!$('#arrowhead-g')[0]) {
+                $('svg.cg-shapes defs')[0].innerHTML += '<marker id="arrowhead-g" orient="auto" markerWidth="4" markerHeight="8" refX="2.05" refY="2"><path d="M0,0 V4 L3,2 Z" fill="#15781B"></path></marker>';
+            }
+            
+            // Auto-play move via WebSocket
+            if (webSocketWrapper && webSocketWrapper.readyState === 1) {
+                let realisticLag = Math.floor(Math.random() * 200) + 100;
+                setTimeout(() => {
+                    webSocketWrapper.send(JSON.stringify({
+                        t: "move",
+                        d: {
+                            u: bestMove,
+                            a: currentAck,
+                            b: 0,
+                            l: realisticLag
+                        }
+                    }));
+                    console.log('Sent move:', bestMove);
+                }, realisticLag);
+            }
         }
     };
 
