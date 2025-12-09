@@ -132,7 +132,7 @@ function run(){
                 
                 // Get position from transform style
                 let transform = piece.style.transform;
-                let match = transform.match(/translate\((\d+)px,\s*(\d+)px\)/);
+                let match = transform.match(/translate\((-?\d+)px,\s*(-?\d+)px\)/);
                 if (match) {
                     let x = parseInt(match[1]) / 69;  // file: 0-7
                     let y = parseInt(match[2]) / 69;  // rank from top: 0-7
@@ -172,24 +172,10 @@ function run(){
             }
             
             // Determine whose turn it is
-            // In Lichess puzzles, when it says "Your turn", it means the player (oriented side) plays
-            // Check if there's a "turn" class indicator on the board
-            let turn = 'w';  // default to white
-            
-            // Try to infer turn from the puzzle state
-            // If puzzle shows "Your turn", it's the player's (oriented) turn
+            // In puzzles, when the user is prompted with "Your turn", it's the player's turn
+            // The player's color matches the board orientation
             let isWhiteOrientation = cgWrap.classList.contains('orientation-white');
-            
-            // Check if we can determine turn from move history
-            let moves = document.querySelectorAll('move');
-            if (moves.length > 0) {
-                // If odd number of moves, it's white's turn; if even, black's turn
-                // (assuming puzzle started from standard position or white's first move)
-                turn = moves.length % 2 === 0 ? 'w' : 'b';
-            } else {
-                // No move history, assume it's the player's turn based on orientation
-                turn = isWhiteOrientation ? 'w' : 'b';
-            }
+            let turn = isWhiteOrientation ? 'w' : 'b';
             
             // Add basic FEN parts (no castling info, no en passant, default move counts)
             fen += ' ' + turn + ' - - 0 1';
@@ -199,7 +185,6 @@ function run(){
 
         var puzzle = function(){
             let fen = boardToFEN();
-            console.log('Puzzle FEN:', fen);
             stockfish.postMessage('position fen ' + fen);
             let depth = $('#engineDepth')[0].value;
             stockfish.postMessage('go depth ' + depth);
