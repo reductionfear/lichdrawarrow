@@ -108,15 +108,92 @@ function run(){
             return [x,y];
         }
 
-        var puzzle = function(){
-            let gamePuzzle = new Chess();
-            let moves = $('move');
-            for(let i=0;i<moves.length;i++){
-                gamePuzzle.move(moves[i].textContent.replace('✓',''));
+        // Parse board position from DOM pieces to generate FEN
+        function boardToFEN() {
+            const SQUARE_SIZE_PX = 69;  // Each square is 69x69 pixels
+            let board = Array(8).fill(null).map(() => Array(8).fill(null));
+            
+            // Get all pieces from cg-board (exclude ghost pieces)
+            let pieces = document.querySelectorAll('cg-board piece:not(.ghost)');
+            
+            // Check board orientation once
+            let cgWrap = document.querySelector('.cg-wrap');
+            if (!cgWrap) {
+                console.error('Could not find .cg-wrap element');
+                return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';  // Return standard starting position
             }
-            stockfish.postMessage('position fen '+gamePuzzle.fen());
+            let isBlack = cgWrap.classList.contains('orientation-black');
+            
+            pieces.forEach(piece => {
+                let classes = piece.className.split(' ');
+                let color = classes.includes('white') ? 'w' : 'b';
+                let type = '';
+                if (classes.includes('king')) type = 'k';
+                else if (classes.includes('queen')) type = 'q';
+                else if (classes.includes('rook')) type = 'r';
+                else if (classes.includes('bishop')) type = 'b';
+                else if (classes.includes('knight')) type = 'n';
+                else if (classes.includes('pawn')) type = 'p';
+                
+                // Get position from transform style
+                let transform = piece.style.transform;
+                let match = transform.match(/translate\((-?\d+)px,\s*(-?\d+)px\)/);
+                if (match) {
+                    let x = parseInt(match[1]) / SQUARE_SIZE_PX;  // file: 0-7 (0=a, 7=h)
+                    let y = parseInt(match[2]) / SQUARE_SIZE_PX;  // rank from top: 0-7 (0=top row on screen)
+                    
+                    // Adjust for board orientation (black board is flipped)
+                    if (isBlack) {
+                        x = 7 - x;
+                        y = 7 - y;
+                    }
+                    
+                    let file = Math.round(x);  // 0-7 representing a-h
+                    let rank = 7 - Math.round(y);  // Convert screen position to chess rank (0=rank1, 7=rank8)
+                    
+                    // Place piece in board array (board[0] = rank 8, board[7] = rank 1)
+                    if (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
+                        board[7 - rank][file] = color === 'w' ? type.toUpperCase() : type;
+                    }
+                }
+            });
+            
+            // Convert board to FEN string
+            let fen = '';
+            for (let rank = 0; rank < 8; rank++) {
+                let empty = 0;
+                for (let file = 0; file < 8; file++) {
+                    if (board[rank][file]) {
+                        if (empty > 0) {
+                            fen += empty;
+                            empty = 0;
+                        }
+                        fen += board[rank][file];
+                    } else {
+                        empty++;
+                    }
+                }
+                if (empty > 0) fen += empty;
+                if (rank < 7) fen += '/';
+            }
+            
+            // Determine whose turn it is
+            // In Lichess puzzles, when "Your turn" is displayed, it's the player's turn to move
+            // The player's color matches the board orientation (white plays from white's perspective)
+            let isWhiteOrientation = cgWrap.classList.contains('orientation-white');
+            let turn = isWhiteOrientation ? 'w' : 'b';
+            
+            // Add basic FEN parts (no castling info, no en passant, default move counts)
+            fen += ' ' + turn + ' - - 0 1';
+            
+            return fen;
+        }
+
+        var puzzle = function(){
+            let fen = boardToFEN();
+            stockfish.postMessage('position fen ' + fen);
             let depth = $('#engineDepth')[0].value;
-            stockfish.postMessage('go depth '+depth);
+            stockfish.postMessage('go depth ' + depth);
             $("#engineStatus")[0].innerText = "Running...";
         }
         stockfish.onmessage = function(event) {
