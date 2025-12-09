@@ -110,6 +110,7 @@ function run(){
 
         // Parse board position from DOM pieces to generate FEN
         function boardToFEN() {
+            const SQUARE_SIZE_PX = 69;  // Each square is 69x69 pixels
             let board = Array(8).fill(null).map(() => Array(8).fill(null));
             
             // Get all pieces from cg-board (exclude ghost pieces)
@@ -117,6 +118,10 @@ function run(){
             
             // Check board orientation once
             let cgWrap = document.querySelector('.cg-wrap');
+            if (!cgWrap) {
+                console.error('Could not find .cg-wrap element');
+                return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';  // Return standard starting position
+            }
             let isBlack = cgWrap.classList.contains('orientation-black');
             
             pieces.forEach(piece => {
@@ -134,18 +139,19 @@ function run(){
                 let transform = piece.style.transform;
                 let match = transform.match(/translate\((-?\d+)px,\s*(-?\d+)px\)/);
                 if (match) {
-                    let x = parseInt(match[1]) / 69;  // file: 0-7
-                    let y = parseInt(match[2]) / 69;  // rank from top: 0-7
+                    let x = parseInt(match[1]) / SQUARE_SIZE_PX;  // file: 0-7 (0=a, 7=h)
+                    let y = parseInt(match[2]) / SQUARE_SIZE_PX;  // rank from top: 0-7 (0=top row on screen)
                     
-                    // Adjust for board orientation
+                    // Adjust for board orientation (black board is flipped)
                     if (isBlack) {
                         x = 7 - x;
                         y = 7 - y;
                     }
                     
-                    let file = Math.round(x);
-                    let rank = 7 - Math.round(y);  // Convert to 0=rank1, 7=rank8
+                    let file = Math.round(x);  // 0-7 representing a-h
+                    let rank = 7 - Math.round(y);  // Convert screen position to chess rank (0=rank1, 7=rank8)
                     
+                    // Place piece in board array (board[0] = rank 8, board[7] = rank 1)
                     if (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
                         board[7 - rank][file] = color === 'w' ? type.toUpperCase() : type;
                     }
@@ -172,8 +178,8 @@ function run(){
             }
             
             // Determine whose turn it is
-            // In puzzles, when the user is prompted with "Your turn", it's the player's turn
-            // The player's color matches the board orientation
+            // In Lichess puzzles, when "Your turn" is displayed, it's the player's turn to move
+            // The player's color matches the board orientation (white plays from white's perspective)
             let isWhiteOrientation = cgWrap.classList.contains('orientation-white');
             let turn = isWhiteOrientation ? 'w' : 'b';
             
