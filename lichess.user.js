@@ -108,15 +108,84 @@ function run(){
             return [x,y];
         }
 
-        var puzzle = function(){
-            let gamePuzzle = new Chess();
-            let moves = $('move');
-            for(let i=0;i<moves.length;i++){
-                gamePuzzle.move(moves[i].textContent.replace('✓',''));
+        // Parse board position from DOM pieces to generate FEN
+        function boardToFEN() {
+            let board = Array(8).fill(null).map(() => Array(8).fill(null));
+            
+            // Get all pieces from cg-board (exclude ghost pieces)
+            let pieces = document.querySelectorAll('cg-board piece:not(.ghost)');
+            
+            pieces.forEach(piece => {
+                let classes = piece.className.split(' ');
+                let color = classes.includes('white') ? 'w' : 'b';
+                let type = '';
+                if (classes.includes('king')) type = 'k';
+                else if (classes.includes('queen')) type = 'q';
+                else if (classes.includes('rook')) type = 'r';
+                else if (classes.includes('bishop')) type = 'b';
+                else if (classes.includes('knight')) type = 'n';
+                else if (classes.includes('pawn')) type = 'p';
+                
+                // Get position from transform style
+                let transform = piece.style.transform;
+                let match = transform.match(/translate\((\d+)px,\s*(\d+)px\)/);
+                if (match) {
+                    let x = parseInt(match[1]) / 69;  // file: 0-7
+                    let y = parseInt(match[2]) / 69;  // rank from top: 0-7
+                    
+                    // Adjust for board orientation
+                    let isBlack = document.querySelector('.cg-wrap').classList.contains('orientation-black');
+                    if (isBlack) {
+                        x = 7 - x;
+                        y = 7 - y;
+                    }
+                    
+                    let file = Math.round(x);
+                    let rank = 7 - Math.round(y);  // Convert to 0=rank1, 7=rank8
+                    
+                    if (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
+                        board[7 - rank][file] = color === 'w' ? type.toUpperCase() : type;
+                    }
+                }
+            });
+            
+            // Convert board to FEN string
+            let fen = '';
+            for (let rank = 0; rank < 8; rank++) {
+                let empty = 0;
+                for (let file = 0; file < 8; file++) {
+                    if (board[rank][file]) {
+                        if (empty > 0) {
+                            fen += empty;
+                            empty = 0;
+                        }
+                        fen += board[rank][file];
+                    } else {
+                        empty++;
+                    }
+                }
+                if (empty > 0) fen += empty;
+                if (rank < 7) fen += '/';
             }
-            stockfish.postMessage('position fen '+gamePuzzle.fen());
+            
+            // Determine whose turn based on puzzle state
+            // In puzzles, it's always the player's turn when "Your turn" is shown
+            // Default to white's turn, can be adjusted based on orientation
+            let isWhiteOrientation = document.querySelector('.cg-wrap').classList.contains('orientation-white');
+            let turn = isWhiteOrientation ? 'w' : 'b';
+            
+            // Add basic FEN parts (no castling info, no en passant, default move counts)
+            fen += ' ' + turn + ' - - 0 1';
+            
+            return fen;
+        }
+
+        var puzzle = function(){
+            let fen = boardToFEN();
+            console.log('Puzzle FEN:', fen);
+            stockfish.postMessage('position fen ' + fen);
             let depth = $('#engineDepth')[0].value;
-            stockfish.postMessage('go depth '+depth);
+            stockfish.postMessage('go depth ' + depth);
             $("#engineStatus")[0].innerText = "Running...";
         }
         stockfish.onmessage = function(event) {
