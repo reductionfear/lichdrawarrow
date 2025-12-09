@@ -115,6 +115,10 @@ function run(){
             // Get all pieces from cg-board (exclude ghost pieces)
             let pieces = document.querySelectorAll('cg-board piece:not(.ghost)');
             
+            // Check board orientation once
+            let cgWrap = document.querySelector('.cg-wrap');
+            let isBlack = cgWrap.classList.contains('orientation-black');
+            
             pieces.forEach(piece => {
                 let classes = piece.className.split(' ');
                 let color = classes.includes('white') ? 'w' : 'b';
@@ -134,7 +138,6 @@ function run(){
                     let y = parseInt(match[2]) / 69;  // rank from top: 0-7
                     
                     // Adjust for board orientation
-                    let isBlack = document.querySelector('.cg-wrap').classList.contains('orientation-black');
                     if (isBlack) {
                         x = 7 - x;
                         y = 7 - y;
@@ -168,11 +171,25 @@ function run(){
                 if (rank < 7) fen += '/';
             }
             
-            // Determine whose turn based on puzzle state
-            // In puzzles, it's always the player's turn when "Your turn" is shown
-            // Default to white's turn, can be adjusted based on orientation
-            let isWhiteOrientation = document.querySelector('.cg-wrap').classList.contains('orientation-white');
-            let turn = isWhiteOrientation ? 'w' : 'b';
+            // Determine whose turn it is
+            // In Lichess puzzles, when it says "Your turn", it means the player (oriented side) plays
+            // Check if there's a "turn" class indicator on the board
+            let turn = 'w';  // default to white
+            
+            // Try to infer turn from the puzzle state
+            // If puzzle shows "Your turn", it's the player's (oriented) turn
+            let isWhiteOrientation = cgWrap.classList.contains('orientation-white');
+            
+            // Check if we can determine turn from move history
+            let moves = document.querySelectorAll('move');
+            if (moves.length > 0) {
+                // If odd number of moves, it's white's turn; if even, black's turn
+                // (assuming puzzle started from standard position or white's first move)
+                turn = moves.length % 2 === 0 ? 'w' : 'b';
+            } else {
+                // No move history, assume it's the player's turn based on orientation
+                turn = isWhiteOrientation ? 'w' : 'b';
+            }
             
             // Add basic FEN parts (no castling info, no en passant, default move counts)
             fen += ' ' + turn + ' - - 0 1';
